@@ -86,6 +86,7 @@ void createSocketConnection(void (* initKeypress)())
 	register_ucresolv_logger (__cimplog);
 #endif
     ParodusPrint("Configure nopoll thread handlers in Parodus\n");
+    ParodusInfo("Configure nopoll thread handlers in Parodus\n");
     nopoll_thread_handlers(&createMutex, &destroyMutex, &lockMutex, &unlockMutex);
     ctx = nopoll_ctx_new();
     if (!ctx) 
@@ -227,6 +228,7 @@ void createSocketConnection(void (* initKeypress)())
 }
 
 void shutdownSocketConnection(char *reason) {
+   ParodusInfo ("set_global_shutdown_reason \n");
    set_global_shutdown_reason (reason);
    g_shutdown = true;
    reset_interface_down_event ();

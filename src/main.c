@@ -79,6 +79,7 @@ signal (int signo, Sigfunc *func)
 int main( int argc, char **argv)
 {
     set_global_shutdown_reason (SHUTDOWN_REASON_PARODUS_STOP);
+    ParodusInfo("shutdown signal received");
     signal(SIGTERM, sig_handler);
     signal(SIGINT, sig_handler);
 	signal(SIGUSR1, sig_handler);

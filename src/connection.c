@@ -490,47 +490,50 @@ int nopoll_connect (create_connection_ctx_t *ctx, int is_ipv6)
 {
    noPollCtx *nopoll_ctx = ctx->nopoll_ctx;
    server_t *server = ctx->current_server;
-   noPollConn *connection;
+   noPollConn *connection =NULL;
    noPollConnOpts * opts;
    char *default_url = get_parodus_cfg()->webpa_path_url; 
    char port_buf[8];
 
    sprintf (port_buf, "%u", server->port);
-   if (server->allow_insecure > 0) {
-      ParodusPrint("secure false\n");
-      opts = createConnOpts(ctx->extra_headers, false); 
-      connection = nopoll_conn_new_opts (nopoll_ctx, opts, 
-        server->server_addr, port_buf,
-        NULL, default_url,NULL,NULL);// WEBPA-787
-   } else {
-      ParodusPrint("secure true\n");
-      opts = createConnOpts(ctx->extra_headers, true);
-      if (is_ipv6) {
-         ParodusInfo("Connecting in Ipv6 mode\n");
-         connection = nopoll_conn_tls_new6 (nopoll_ctx, opts, 
-           server->server_addr, port_buf,
-           NULL, default_url,NULL,NULL);
-      } else {      
-         ParodusInfo("Connecting in Ipv4 mode\n");
-         connection = nopoll_conn_tls_new (nopoll_ctx, opts, 
-           server->server_addr, port_buf,
-           NULL, default_url,NULL,NULL);
-      }      
-   }
-   if ((NULL == connection) && (!is_ipv6)) {
-     if((checkHostIp(server->server_addr) == -2)) {
-       if (check_timer_expired (&ctx->connect_timer, 15*60*1000) && !get_interface_down_event()) {
-  	 ParodusError("WebPA unable to connect due to DNS resolving to 10.0.0.1 for over 15 minutes; crashing service.\n");
-	 OnboardLog("WebPA unable to connect due to DNS resolving to 10.0.0.1 for over 15 minutes; crashing service.\n");
-	 OnboardLog("Reconnect detected, setting Dns_Res_webpa_reconnect reason for Reconnect\n");
-	 set_global_reconnect_reason("Dns_Res_webpa_reconnect");
-	 set_global_reconnect_status(true);
+   ParodusInfo("g_shutdown value is %d\n",g_shutdown);
+   if(!g_shutdown){ 
+	   if (server->allow_insecure > 0) {
+	      ParodusPrint("secure false\n");
+	      opts = createConnOpts(ctx->extra_headers, false); 
+	      connection = nopoll_conn_new_opts (nopoll_ctx, opts, 
+		server->server_addr, port_buf,
+		NULL, default_url,NULL,NULL);// WEBPA-787
+	   } else {
+	      ParodusPrint("secure true\n");
+	      opts = createConnOpts(ctx->extra_headers, true);
+	      if (is_ipv6) {
+		 ParodusInfo("Connecting in Ipv6 mode\n");
+		 connection = nopoll_conn_tls_new6 (nopoll_ctx, opts, 
+		   server->server_addr, port_buf,
+		   NULL, default_url,NULL,NULL);
+	      } else {      
+		 ParodusInfo("Connecting in Ipv4 mode\n");
+		 connection = nopoll_conn_tls_new (nopoll_ctx, opts, 
+		   server->server_addr, port_buf,
+		   NULL, default_url,NULL,NULL);
+	      }      
+	   }   
+	   if ((NULL == connection) && (!is_ipv6)) {
+	     if((checkHostIp(server->server_addr) == -2)) {
+	       if (check_timer_expired (&ctx->connect_timer, 15*60*1000) && !get_interface_down_event()) {
+	  	 ParodusError("WebPA unable to connect due to DNS resolving to 10.0.0.1 for over 15 minutes; crashing service.\n");
+		 ParodusInfo("WebPA unable to connect due to DNS resolving to 10.0.0.1 for over 15 minutes; crashing service.\n");
+		 OnboardLog("WebPA unable to connect due to DNS resolving to 10.0.0.1 for over 15 minutes; crashing service.\n");
+		 OnboardLog("Reconnect detected, setting Dns_Res_webpa_reconnect reason for Reconnect\n");
+		 set_global_reconnect_reason("Dns_Res_webpa_reconnect");
+		 set_global_reconnect_status(true);
 						
-	 kill(getpid(),SIGTERM);						
-       }
-     }
-   }
-           
+		 kill(getpid(),SIGTERM);						
+	       }
+	     }
+	   }
+        }   
    set_global_conn(connection);
    return (NULL != connection);
 }
@@ -564,6 +567,7 @@ int wait_connection_ready (create_connection_ctx_t *ctx)
 	free_server (&ctx->server_list->redirect);
 	if (parse_server_url (redirect_ptr, &ctx->server_list->redirect) < 0) {
 	  ParodusError ("Redirect url error %s\n", redirectURL);
+          ParodusInfo("Redirect url error %s\n", redirectURL);
   	  free (redirectURL);
 	  return WAIT_FAIL;
 	}
@@ -579,9 +583,11 @@ int wait_connection_ready (create_connection_ctx_t *ctx)
     memset (cfg->webpa_auth_token, 0, sizeof(cfg->webpa_auth_token));
     ParodusError("Received Unauthorized response with status: %d\n", wait_status);
 	OnboardLog("Received Unauthorized response with status: %d\n", wait_status);
+    ParodusInfo("Received Unauthorized response with status: %d\n", wait_status);
     return WAIT_ACTION_RETRY;
   }
   ParodusError("Client connection timeout\n");	
+  ParodusInfo("Client connection timeout\n");
   ParodusError("RDK-10037 - WebPA Connection Lost\n");
   return WAIT_FAIL;
 }
@@ -612,6 +618,7 @@ int connect_and_wait (create_connection_ctx_t *ctx)
     if (nopoll_connected) {
       if(nopoll_conn_is_ok(get_global_conn())) { 
 	ParodusPrint("Connected to Server but not yet ready\n");
+	ParodusInfo("Connected to Server but not yet ready\n");
 	wait_rtn = wait_connection_ready (ctx);
         if (wait_rtn == WAIT_SUCCESS)
           return CONN_WAIT_SUCCESS;
@@ -647,7 +654,7 @@ int keep_trying_to_connect (create_connection_ctx_t *ctx,
 	backoff_timer_t *backoff_timer)
 {
     int rtn;
-    
+    ParodusInfo("g_shutdown value in trying to connect %d\n",g_shutdown);
     while (!g_shutdown)
     {
       set_extra_headers (ctx);
@@ -688,6 +695,7 @@ int wait_while_interface_down()
 	
 	ParodusError("Interface is down, hence waiting until its up\n");
 	close_and_unref_connection (get_global_conn(), false);
+	ParodusInfo("Interface is down, hence waiting until its up");
 	set_global_conn(NULL);
 
 	while (get_interface_down_event ()) {
@@ -697,7 +705,10 @@ int wait_while_interface_down()
   	  if (rtn != 0)
   	    ParodusError 
   	      ("Error on pthread_cond_wait (%d) in wait_while_interface_down\n", rtn);
+	    ParodusInfo("Error on pthread_cond_wait (%d) in wait_while_interface_down\n", rtn);	
   	  if ((rtn != 0) || g_shutdown) {
+		ParodusInfo("g_shutdown value when interface down %d\n",g_shutdown);
+		ParodusInfo("Error on pthread_cond_wait g_shutdown");
 	    return -1;
 	  }
 	}
@@ -736,22 +747,26 @@ int createNopollConnection(noPollCtx *ctx, server_list_t *server_list)
 	/* look up server information if we don't already have it */
 	if (server_is_null (&server_list->defaults))
 	  if (find_servers (server_list) == FIND_INVALID_DEFAULT) {
+		ParodusInfo("look up server information");	
         return nopoll_false;		  
       }
 	conn_ctx.server_list = server_list;
     init_backoff_timer (&backoff_timer, max_retry_count);
     start_conn_in_progress (backoff_timer.start_time); 
-  
+    ParodusInfo("init_backoff_timer ,start_conn_in_progress\n");	
+   ParodusInfo("g_shutdown value in create connection %d\n",g_shutdown);
 	while (!g_shutdown)
 	{
 	  set_current_server (&conn_ctx);
 	  if (keep_trying_to_connect (&conn_ctx, &backoff_timer)) {
 		// Don't reuse the redirect server during reconnect
+		ParodusInfo("keep_trying_to_connect");
 		free_server (&conn_ctx.server_list->redirect);
 		break;
 	  }
 	  /* if we failed to connect, don't reuse the redirect server */	
       free_server (&conn_ctx.server_list->redirect);
+	ParodusInfo("don't reuse the redirect server");
 #ifdef FEATURE_DNS_QUERY
       /* if we don't already have a valid jwt, look up server information */
       if (server_is_null (&conn_ctx.server_list->jwt))
@@ -780,6 +795,7 @@ int createNopollConnection(noPollCtx *ctx, server_list_t *server_list)
 	if(NULL != on_ping_status_change)
 	{
 		on_ping_status_change("received");
+		ParodusInfo("on_ping_status_change\n");
 	}
 
 	if((get_parodus_cfg()->boot_time != 0) && init) {
@@ -798,6 +814,7 @@ int createNopollConnection(noPollCtx *ctx, server_list_t *server_list)
 	set_global_reconnect_reason("webpa_process_starts");
 	set_global_reconnect_status(false);
 	ParodusPrint("LastReasonStatus reset after successful connection\n");
+	ParodusInfo("LastReasonStatus reset after successful connection\n");
 	setMessageHandlers();
     stop_conn_in_progress ();
 	return nopoll_true;
@@ -828,7 +845,7 @@ static noPollConnOpts * createConnOpts (char * extra_headers, bool secure)
     noPollConnOpts * opts;
     char * mtls_client_cert_path = NULL;
     char * mtls_client_key_path = NULL;
-    
+    ParodusInfo("noPollConnOpts \n");
     opts = nopoll_conn_opts_new ();
     if(secure) 
 	{
