@@ -102,7 +102,7 @@ void *serviceAliveTask()
 				        ParodusPrint("svc byte sent :%d\n", byte);
 				        if(byte == nbytes)
 				        {
-					        ParodusPrint("service_name: %s is alive\n",temp->service_name);
+					        ParodusInfo("service_name: %s is alive\n",temp->service_name);
 				        }
 				        else
 				        {
@@ -125,7 +125,7 @@ void *serviceAliveTask()
 				        }
 			        }
 				release_global_node ();
-		         	ParodusPrint("Waiting for 30s to send keep alive msg \n");
+		         	ParodusInfo("Waiting for 30s to send keep alive msg \n");
 		         	if (wait__ (KEEPALIVE_INTERVAL_SEC))
 				  break;
 	            	}
