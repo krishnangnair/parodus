@@ -89,7 +89,9 @@ int main( int argc, char **argv)
 #ifdef INCLUDE_BREAKPAD
     /* breakpad handles the signals SIGSEGV, SIGBUS, SIGFPE, and SIGILL */
     breakpad_ExceptionHandler();
+    ParodusInfo("breakpad_exceptionhandler in parodus !\n");	
 #else
+	ParodusInfo("breakpad_exceptionhandler in parodus else !\n");
 	signal(SIGSEGV, sig_handler);
 	signal(SIGBUS, sig_handler);
 	signal(SIGFPE, sig_handler);
